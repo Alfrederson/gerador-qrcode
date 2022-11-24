@@ -25,7 +25,7 @@ func getPix(c *gin.Context){
 func gerarQR(txt string) ([]byte){
 	var png []byte
 	contador++
-	png,err := qrcode.Encode( fmt.Sprintf("Prefixo qualquer\n%d\n%s",contador,txt),qrcode.Medium, 256)
+	png,err := qrcode.Encode( fmt.Sprintf("Prefixo qualquer\n%d\n%s",contador,txt),qrcode.Medium, 512)
 	if err != nil{
 		return nil
 	}
