@@ -4,6 +4,7 @@ import (
 	"os"
 	"strconv"
 	"fmt"
+	"log"
 	"net/http"
 	"github.com/gin-gonic/gin"
 	"github.com/skip2/go-qrcode"
@@ -75,7 +76,7 @@ func gerarPixCopiaECola(nome string, cidade string, chave string, valor string) 
 	// calcular o CRC16 com polinomial 0x1021 e valor inicial 0xFFFF
 	seq += fmt.Sprintf("%X", crc(seq))
 
-	fmt.Println("Código PIX gerado:"+seq)
+	log.Println("Código PIX gerado:"+seq)
 	return seq
 }
 
@@ -94,6 +95,7 @@ func getPix(c *gin.Context){
 
 	qr := gerarQR(gerarPixCopiaECola(nome,cidade,chave,valor))
 	if qr != nil{
+		c.Header("Content-Disposition" , "inline; filename=\"qrcode_para_"+nome+".png\"")
 		c.Data(http.StatusOK,"image/png",qr)
 	}else{
 		c.String(http.StatusInternalServerError,"Ops! Alguma coisa não funcionou.")
@@ -103,7 +105,7 @@ func getPix(c *gin.Context){
 func gerarQR(txt string) ([]byte){
 	var png []byte
 	
-	png,err := qrcode.Encode( txt ,qrcode.Medium, 256)
+	png,err := qrcode.Encode( txt ,qrcode.Medium, 1024)
 	if err != nil{
 		return nil
 	}
