@@ -33,7 +33,7 @@ func gerarQR(txt string) ([]byte){
 }
 
 func main(){
-
+	// forçando o negócio do google a dar build.
 	router := gin.Default()
 	router.GET("/pix/:mensagem",getPix)
 
