@@ -44,7 +44,7 @@ func crc(do_que string) int {
 */
 func gerarPixCopiaECola(nome string, cidade string, chave string, valor string) string {
 
-	var codigo = "Gerador de QR" // código da transferência sem espaços
+	var codigo = "GeradorDeQr" // código da transferência sem espaços
 	
 
 	seq := "000201" // 00 02 01 payload format indicator
