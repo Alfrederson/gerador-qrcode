@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"strconv"
 	"fmt"
@@ -9,6 +10,42 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/skip2/go-qrcode"
 )
+
+type DadosBRCode = struct{
+	nome string
+	cidade string
+	chave string
+	valor string
+	codigo string
+}
+
+func extraiBRCode(c *gin.Context) (DadosBRCode,error){
+	resultado := DadosBRCode{codigo : "GeradorQR"}
+	resultado.nome = c.Param("nome")
+	if resultado.nome ==""{
+		return resultado, errors.New("Sem nome")
+	}
+
+	resultado.cidade = c.Param("cidade")
+	if resultado.cidade ==""{
+		return resultado, errors.New("Sem cidade")
+	}
+	
+	resultado.chave = c.Param("chave")
+	if resultado.chave == ""{
+		return resultado, errors.New("Sem chave")
+	}
+
+	valorf,err := strconv.ParseFloat(c.Param("valor"),64)
+
+	if err != nil{
+		valorf = 0.01
+	}
+
+	resultado.valor = fmt.Sprintf("%0.2f",valorf)
+
+	return resultado,nil
+}
 
 
 // tabela gerada com polinomial 0x1021
@@ -41,13 +78,16 @@ func crc(do_que string) int {
 }
 
 /*
-	chave => chave de quem vai receber.
+	acho que isso pode ser transformado em um método do DadosBRCode.
 */
-func gerarPixCopiaECola(nome string, cidade string, chave string, valor string) string {
-
-	var codigo = "GeradorDeQr" // código da transferência sem espaços
+func gerarPixCopiaECola(b DadosBRCode) string {
+	nome := b.nome
+	cidade := b.cidade
+	chave := b.chave
+	valor := b.valor
 	
-
+	codigo := b.codigo // código da transferência sem espaços
+	
 	seq := "000201" // 00 02 01 payload format indicator
 					// 01 02 12 point of initiation não é usado
 					// 26 xx    merchant account information  0014BR.GOV.BCB.PIX e depois 01(tamanho da chave)(chave)
@@ -81,25 +121,29 @@ func gerarPixCopiaECola(nome string, cidade string, chave string, valor string) 
 }
 
 func getPix(c *gin.Context){
-	nome := c.Param("nome")
-	cidade := c.Param("cidade")
-	chave := c.Param("chave")
+	brCode, error := extraiBRCode(c)
 
-	valorf, err := strconv.ParseFloat(c.Param("valor"),64)
+	if error !=nil{
+		c.String(http.StatusInternalServerError,"Ops! Alguma coisa não funcionou:\n"+error.Error())
+		return 
+	}
+	
+	qr := gerarQR(gerarPixCopiaECola(brCode))
+	c.Header("Content-Disposition" , "inline; filename=\"qrcode_para_"+brCode.nome+".png\"")
+	c.Data(http.StatusOK,"image/png",qr)
 
-	if err != nil{
-		valorf = 0.01
+}
+
+// violando DRY
+func getCopicola(c *gin.Context){
+	brCode, error := extraiBRCode(c)
+
+	if error != nil{
+		c.String(http.StatusInternalServerError,"Ops! Alguma coisa não funcionou:\n"+error.Error())
+		return
 	}
 
-	valor := fmt.Sprintf("%0.2f",valorf)
-
-	qr := gerarQR(gerarPixCopiaECola(nome,cidade,chave,valor))
-	if qr != nil{
-		c.Header("Content-Disposition" , "inline; filename=\"qrcode_para_"+nome+".png\"")
-		c.Data(http.StatusOK,"image/png",qr)
-	}else{
-		c.String(http.StatusInternalServerError,"Ops! Alguma coisa não funcionou.")
-	}
+	c.String(http.StatusOK,gerarPixCopiaECola(brCode))
 }
 
 func gerarQR(txt string) ([]byte){
@@ -116,6 +160,8 @@ func main(){
 	// forçando o negócio do google a dar build!
 	router := gin.Default()
 	router.GET("/pix/:nome/:cidade/:chave/:valor",getPix)
+	router.GET("/copicola/:nome/:cidade/:chave/:valor",getCopicola)
+
 
 	port := os.Getenv("PORT")
 	if port == ""{
