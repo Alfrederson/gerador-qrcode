@@ -114,7 +114,8 @@ func gerarPixCopiaECola(b DadosBRCode) string {
 	// se não tiver isso, o app do banco não realiza a transferência.
 	seq += fmt.Sprintf("6304") //%04d",crc)
 	// calcular o CRC16 com polinomial 0x1021 e valor inicial 0xFFFF
-	seq += fmt.Sprintf("%X", crc(seq))
+	// ele tem que ter sempre 4 digitos, então tem o %04 na frente do X
+	seq += fmt.Sprintf("%04X", crc(seq))
 
 	log.Println("Código PIX gerado:"+seq)
 	return seq
