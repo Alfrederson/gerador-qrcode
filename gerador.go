@@ -121,6 +121,11 @@ func gerarPixCopiaECola(b DadosBRCode) string {
 	return seq
 }
 
+func enviarImagem(c *gin.Context, nome string, imagem []byte){
+	c.Header("Content-Disposition" , "inline; filename=\""+nome+".png\"")
+	c.Data(http.StatusOK,"image/png",imagem)
+}
+
 func getPix(c *gin.Context){
 	brCode, error := extraiBRCode(c)
 
@@ -129,10 +134,28 @@ func getPix(c *gin.Context){
 		return 
 	}
 	
-	qr := gerarQR(gerarPixCopiaECola(brCode))
-	c.Header("Content-Disposition" , "inline; filename=\"qrcode_para_"+brCode.nome+".png\"")
-	c.Data(http.StatusOK,"image/png",qr)
+	qr := gerarQR(gerarPixCopiaECola(brCode),512)
+	enviarImagem(c, "qr_code_para_"+brCode.nome , qr)
+}
 
+// acho que dá pra eliminar essa duplicação com uma lambda ou alguma outra
+// coisa que eu não quero fazer agora.
+func getPixTamanho(c *gin.Context){
+	brCode,error := extraiBRCode(c)
+
+	if error != nil{
+		c.String(http.StatusInternalServerError, "Ops! Alguma coisa deu errado:\n"+error.Error())
+		return
+	}
+
+	tamanho,error := strconv.ParseInt(c.Param("tamanho"),10,32)
+
+	if error != nil{
+		tamanho = 256
+	}
+
+	qr := gerarQR(gerarPixCopiaECola(brCode), int(tamanho))
+	enviarImagem(c, "qr_code_para_"+brCode.nome , qr)
 }
 
 // violando DRY
@@ -147,10 +170,16 @@ func getCopicola(c *gin.Context){
 	c.String(http.StatusOK,gerarPixCopiaECola(brCode))
 }
 
-func gerarQR(txt string) ([]byte){
+func gerarQR(txt string, tamanho int) ([]byte){
 	var png []byte
-	
-	png,err := qrcode.Encode( txt ,qrcode.Medium, 1024)
+	if tamanho > 1024{
+		tamanho = 1024
+	}
+	if tamanho < 128{
+		tamanho = 128
+	}
+
+	png,err := qrcode.Encode( txt ,qrcode.Medium, tamanho)
 	if err != nil{
 		return nil
 	}
@@ -161,6 +190,8 @@ func main(){
 	// forçando o negócio do google a dar build!
 	router := gin.Default()
 	router.GET("/pix/:nome/:cidade/:chave/:valor",getPix)
+	router.GET("/pix/:nome/:cidade/:chave/:valor/:tamanho",getPixTamanho)
+
 	router.GET("/copicola/:nome/:cidade/:chave/:valor",getCopicola)
 
 
